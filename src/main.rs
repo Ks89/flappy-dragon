@@ -19,7 +19,7 @@ enum GameMode {
 struct State {
     player: Player,
     frame_time: f32,
-    obstacle: Obstacle,
+    obstacles: Vec<Obstacle>,
     mode: GameMode,
     score: i32,
 }
@@ -29,7 +29,7 @@ impl State {
         State {
             player: Player::new(5, 25),
             frame_time: 0.0,
-            obstacle: Obstacle::new(SCREEN_WIDTH, 0),
+            obstacles: vec![Obstacle::new(SCREEN_WIDTH)],
             mode: GameMode::Menu,
             score: 0,
         }
@@ -43,43 +43,60 @@ impl State {
             self.player.gravity_and_mode();
         }
 
-
         match ctx.key {
             Some(VirtualKeyCode::Space) => {
                 self.player.flap();
-            },
+            }
             Some(VirtualKeyCode::Escape) => {
-               // TODO implement pause
+                // TODO implement pause
                 self.mode = GameMode::Pause;
-                // self.pause_menu(ctx);
-            },
+            }
             _ => {}
         }
-        // if self.mode == GameMode::Pause {
-        //     return
-        // }
+
         self.player.render(ctx);
         ctx.print(0, 0, "Press SPACE to flap.");
         ctx.print(0, 1, "Press ESC to pause.");
         ctx.print(0, 2, &format!("Score {}", self.score));
 
-        self.obstacle.render(ctx, self.player.x);
-        if self.player.x > self.obstacle.x {
-            self.score += 1;
-            self.obstacle = Obstacle::new(
-                self.player.x + SCREEN_WIDTH, self.score,
-            );
+        let mut random = RandomNumberGenerator::new();
+
+        // add new obstacles with a certain percentage
+        if self.frame_time as i32 % 50 == 0 && random.range(1, 40) % 10 == 0 {
+            self.obstacles
+                .push(Obstacle::new(self.player.x + SCREEN_WIDTH));
         }
 
-        if self.player.y > SCREEN_HEIGHT || self.obstacle.hit_obstacle(&self.player) {
-            self.mode = GameMode::End;
+        // render obstacles
+        for obstacle in &mut self.obstacles {
+            obstacle.render(ctx, self.player.x);
+        }
+
+        // add obstacles to remove in a vec
+        let mut pop_obstacle: bool = false;
+        for obstacle in &mut self.obstacles {
+            if self.player.x > obstacle.x {
+                self.score += 1;
+                pop_obstacle = true;
+            }
+        }
+
+        for obstacle in &mut self.obstacles {
+            if self.player.y > SCREEN_HEIGHT || obstacle.hit_obstacle(&self.player) {
+                self.mode = GameMode::End;
+            }
+        }
+
+        if pop_obstacle {
+            // remove first element
+            self.obstacles.remove(0);
         }
     }
 
     fn restart(&mut self) {
         self.player = Player::new(5, 25);
         self.frame_time = 0.0;
-        self.obstacle = Obstacle::new(SCREEN_WIDTH, 0);
+        self.obstacles = vec![Obstacle::new(SCREEN_WIDTH)];
         self.mode = GameMode::Playing;
         self.score = 0;
     }
@@ -162,13 +179,7 @@ impl Player {
     }
 
     fn render(&mut self, ctx: &mut BTerm) {
-        ctx.set(
-            5,
-            self.y,
-            YELLOW,
-            BLACK,
-            to_cp437('@'),
-        );
+        ctx.set(5, self.y, YELLOW, BLACK, to_cp437('@'));
     }
 
     fn gravity_and_mode(&mut self) {
@@ -183,7 +194,7 @@ impl Player {
     }
 
     fn flap(&mut self) {
-        self.velocity = -2.0;   // a negative number, so it moves upward, because 0 is the top of the screeen
+        self.velocity = -2.0; // a negative number, so it moves upward, because 0 is the top of the screeen
     }
 }
 
@@ -194,12 +205,12 @@ struct Obstacle {
 }
 
 impl Obstacle {
-    fn new(x: i32, score: i32) -> Self {
+    fn new(x: i32) -> Self {
         let mut random = RandomNumberGenerator::new();
         Obstacle {
             x,
-            gap_y: random.range(10, 20),
-            size: i32::max(2, 20 - (score * 2)),
+            gap_y: random.range(5, 45),
+            size: i32::max(10, 40),
         }
     }
 
@@ -209,24 +220,12 @@ impl Obstacle {
 
         // draw the top half of the obstacle
         for y in 0..self.gap_y - half_size {
-            ctx.set(
-                screen_x,
-                y,
-                WHITE,
-                NAVY,
-                179,
-            );
+            ctx.set(screen_x, y, WHITE, NAVY, 179);
         }
 
         // draw the bottom half of the obstacle
         for y in self.gap_y + half_size..SCREEN_HEIGHT {
-            ctx.set(
-                screen_x,
-                y,
-                WHITE,
-                NAVY,
-                179,
-            );
+            ctx.set(screen_x, y, WHITE, NAVY, 179);
         }
     }
 
