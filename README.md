@@ -7,5 +7,5 @@ For more info, please refer to [this website](https://hands-on-rust.com/) and [t
 <br/>
 
 I made some changes:
-- pause menu pressing `escape` button
-- ...
+- pause menu pressing `escape` button while playing
+- many obstacles placed on screen randomly
